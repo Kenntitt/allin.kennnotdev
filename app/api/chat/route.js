@@ -8,17 +8,19 @@ export async function POST(req) {
       return Response.json({ error: 'Pesan tidak boleh kosong' }, { status: 400 });
     }
 
-    const prompt = encodeURIComponent(message);
-    const response = await fetch(`https://text.pollinations.ai/${prompt}?model=openai`, {
-      method: 'GET',
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
-    
-    if (!response.ok) throw new Error('AI service unavailable');
-    
-    const text = await response.text();
+    const res = await fetch(
+      `https://api.nexray.eu.cc/ai/claude?text=${encodeURIComponent(message)}`,
+      { headers: { 'User-Agent': 'Mozilla/5.0' } }
+    );
 
-    return Response.json({ reply: text || 'Maaf, saya tidak bisa menghasilkan jawaban saat ini.' });
+    if (!res.ok) throw new Error('AI service unavailable');
+    const data = await res.json();
+
+    if (!data.status || !data.result) {
+      throw new Error('Respons AI tidak valid');
+    }
+
+    return Response.json({ reply: data.result });
   } catch (err) {
     console.error('Chat API Error:', err);
     return Response.json({ error: 'Gagal menghubungi AI. Coba lagi.' }, { status: 500 });
