@@ -30,7 +30,7 @@ export default function ChatAI() {
         body: JSON.stringify({ message: text }),
       });
       const data = await res.json();
-      setMessages(m => [...m, { role: 'ai', text: data.reply || 'Maaf, tidak ada respons.' }]);
+      setMessages(m => [...m, { role: 'ai', text: data.reply || data.error || 'Maaf, tidak ada respons.' }]);
     } catch {
       setMessages(m => [...m, { role: 'ai', text: '❌ Koneksi gagal. Coba lagi.' }]);
     }
