@@ -1,6 +1,15 @@
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// Parse duration string "4:22" → total seconds
+function parseDuration(str) {
+  if (!str) return 0;
+  const parts = String(str).split(':').map(Number);
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  return 0;
+}
+
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
@@ -9,31 +18,38 @@ export async function GET(req) {
       return Response.json({ error: 'Query required' }, { status: 400 });
     }
 
-    // JioSaavn public API - free, full songs
     const res = await fetch(
-      `https://api.nexray.eu.cc/downloader/spotifyplay?query=${encodeURIComponent(q)}&page=1&limit=12`,
+      `https://api.nexray.eu.cc/downloader/spotifyplay?q=${encodeURIComponent(q)}`,
       { headers: { 'User-Agent': 'Mozilla/5.0' } }
     );
 
     if (!res.ok) throw new Error('Music service unavailable');
     const data = await res.json();
 
-    if (!data.data?.results?.length) {
+    // Response: { status: true, result: { title, artist, duration, thumbnail, download_url, ... } }
+    if (!data.status || !data.result) {
       return Response.json({ results: [] });
     }
 
-    const results = data.data.results.map(song => ({
-      id: song.id,
-      name: song.name,
-      artist: song.artists?.primary?.map(a => a.name).join(', ') || 'Unknown',
-      album: song.album?.name || '',
-      duration: song.duration || 0,
-      image: song.image?.[2]?.url || song.image?.[1]?.url || song.image?.[0]?.url || null,
-      // pick highest quality download url
-      url: song.downloadUrl?.[4]?.url || song.downloadUrl?.[3]?.url || song.downloadUrl?.[2]?.url || null,
-    })).filter(s => s.url);
+    const song = data.result;
 
-    return Response.json({ results });
+    // Validasi download_url ada
+    if (!song.download_url) {
+      return Response.json({ results: [] });
+    }
+
+    const result = {
+      id: song.url || q, // spotify track url sebagai unique id
+      name: song.title || 'Unknown',
+      artist: song.artist || 'Unknown',
+      album: song.album || '',
+      duration: parseDuration(song.duration),
+      image: song.thumbnail || null,
+      url: song.download_url,
+      spotify_url: song.url || null,
+    };
+
+    return Response.json({ results: [result] });
   } catch (err) {
     console.error('Music API Error:', err);
     return Response.json({ error: err.message }, { status: 500 });
